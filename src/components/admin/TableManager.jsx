@@ -11,7 +11,8 @@ export default function TableManager({ restaurantId }) {
   const [saving, setSaving] = useState(false)
   const [selectedTable, setSelectedTable] = useState(null)
 
-  const baseUrl = window.location.origin
+  // Usa la URL de producción fija si está definida, evitando URLs de preview de Vercel
+  const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin
 
   useEffect(() => {
     if (restaurantId) fetchTables()

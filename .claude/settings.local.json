@@ -10,7 +10,16 @@
       "Bash(python3 *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "mcp__plugin_vercel_vercel__list_teams",
+      "mcp__plugin_vercel_vercel__list_projects",
+      "mcp__plugin_vercel_vercel__get_project",
+      "Bash(vercel --version)",
+      "Bash(vercel ls *)",
+      "Bash(vercel inspect *)",
+      "Bash(vercel domains *)",
+      "Bash(vercel project *)",
+      "Bash(vercel env *)"
     ]
   }
 }
