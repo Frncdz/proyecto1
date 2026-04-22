@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
@@ -47,10 +47,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
-    </HashRouter>
+    </BrowserRouter>
   )
 }

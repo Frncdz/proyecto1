@@ -11,7 +11,7 @@ export default function TableManager({ restaurantId }) {
   const [saving, setSaving] = useState(false)
   const [selectedTable, setSelectedTable] = useState(null)
 
-  const baseUrl = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
+  const baseUrl = window.location.origin
 
   useEffect(() => {
     if (restaurantId) fetchTables()
@@ -106,7 +106,7 @@ export default function TableManager({ restaurantId }) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {tables.map(table => {
-            const menuUrl = `${baseUrl}/#/menu/${table.id}`
+            const menuUrl = `${baseUrl}/menu/${table.id}`
             return (
               <div key={table.id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col items-center gap-4">
                 <p className="font-semibold text-white">{table.name}</p>
