@@ -177,7 +177,9 @@ export function useTableSession(tableId, restaurantId) {
   async function closeSession() {
     if (!session) return
     await supabase.from('table_sessions').update({ status: 'closed' }).eq('id', session.id)
-    localStorage.removeItem(TOKEN_KEY(tableId))
+    // Token is intentionally kept in localStorage so that on reload, initialize()
+    // hits the DB, sees status='closed', and shows "Mesa cerrada" — preventing
+    // immediate re-entry without a fresh QR scan (new browser session / incognito)
     setStatus('closed')
   }
 
