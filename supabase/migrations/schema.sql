@@ -248,9 +248,40 @@ ALTER PUBLICATION supabase_realtime ADD TABLE waiter_calls;
 -- ─────────────────────────────────────────────
 -- STORAGE BUCKETS
 -- Crear manualmente en: Dashboard > Storage > New bucket
--- ─────────────────────────────────────────────
 -- Bucket 1: "menu-images"       → público  (fotos de platos)
 -- Bucket 2: "restaurant-logos"  → público  (logos del local)
+-- ─────────────────────────────────────────────
+-- STORAGE POLICIES
+-- Ejecutar después de crear los buckets
+-- ─────────────────────────────────────────────
+
+-- menu-images: lectura pública, upload/delete solo admins autenticados
+CREATE POLICY "menu_images_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'menu-images');
+
+CREATE POLICY "menu_images_auth_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'menu-images' AND auth.uid() IS NOT NULL
+  );
+
+CREATE POLICY "menu_images_auth_delete" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'menu-images' AND auth.uid() IS NOT NULL
+  );
+
+-- restaurant-logos: lectura pública, upload/delete solo admins autenticados
+CREATE POLICY "restaurant_logos_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'restaurant-logos');
+
+CREATE POLICY "restaurant_logos_auth_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'restaurant-logos' AND auth.uid() IS NOT NULL
+  );
+
+CREATE POLICY "restaurant_logos_auth_delete" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'restaurant-logos' AND auth.uid() IS NOT NULL
+  );
 
 -- ─────────────────────────────────────────────
 -- SEED: datos iniciales de ejemplo

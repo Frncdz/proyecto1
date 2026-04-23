@@ -12,26 +12,29 @@ export default function Cart({ restaurantId, tableId, onOrderSent }) {
     if (items.length === 0) return
     setSending(true)
 
-    const { data: order, error } = await supabase
+    // Generamos el ID en el cliente para no necesitar leer el registro recién insertado
+    // (el cliente no tiene política SELECT en orders)
+    const orderId = crypto.randomUUID()
+
+    const { error } = await supabase
       .from('orders')
       .insert({
+        id: orderId,
         restaurant_id: restaurantId,
         table_id: tableId,
         total,
         notes: orderNotes || null,
         status: 'pending',
       })
-      .select()
-      .single()
 
-    if (error || !order) {
+    if (error) {
       setSending(false)
       alert('Error al enviar el pedido. Intentá de nuevo.')
       return
     }
 
     const orderItems = items.map(i => ({
-      order_id: order.id,
+      order_id: orderId,
       menu_item_id: i.id,
       item_name: i.name,
       quantity: i.quantity,
