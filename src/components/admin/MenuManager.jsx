@@ -9,6 +9,7 @@ export default function MenuManager({ categories, items, restaurantId, onRefetch
   const [editingCat, setEditingCat] = useState(null)
   const [editingItem, setEditingItem] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
   const [saving, setSaving] = useState(false)
 
   const [catForm, setCatForm] = useState({ name: '', description: '' })
@@ -24,6 +25,7 @@ export default function MenuManager({ categories, items, restaurantId, onRefetch
 
   function openItemForm(item = null, categoryId = null) {
     setEditingItem(item)
+    setUploadError(null)
     setItemForm(item
       ? { name: item.name, description: item.description ?? '', price: item.price, image_url: item.image_url ?? '', is_available: item.is_available, tags: (item.tags ?? []).join(', ') }
       : { name: '', description: '', price: '', image_url: '', is_available: true, tags: '' }
@@ -33,12 +35,25 @@ export default function MenuManager({ categories, items, restaurantId, onRefetch
   }
 
   async function uploadImage(file) {
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    const MAX_SIZE_MB = 2
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setUploadError('Formato no permitido. Usá JPG, PNG o WebP.')
+      return null
+    }
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setUploadError(`La imagen supera los ${MAX_SIZE_MB}MB. Reducí el tamaño e intentá de nuevo.`)
+      return null
+    }
+
+    setUploadError(null)
     setUploading(true)
-    const ext = file.name.split('.').pop()
+    const ext = file.name.split('.').pop().toLowerCase()
     const path = `${restaurantId}/${Date.now()}.${ext}`
     const { error } = await supabase.storage.from(BUCKETS.MENU_IMAGES).upload(path, file)
     setUploading(false)
-    if (error) { alert(`Upload error: ${error.message} | status: ${error.statusCode}`); return null }
+    if (error) { setUploadError(`Error al subir: ${error.message}`); return null }
     const { data } = supabase.storage.from(BUCKETS.MENU_IMAGES).getPublicUrl(path)
     return data.publicUrl
   }
@@ -228,9 +243,15 @@ export default function MenuManager({ categories, items, restaurantId, onRefetch
                 className="input" placeholder="vegano, sin-gluten, picante..." />
             </Field>
             <Field label="Imagen">
+              {uploadError && (
+                <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-2">
+                  {uploadError}
+                </p>
+              )}
+              <p className="text-xs text-neutral-600 mb-2">JPG, PNG o WebP · máximo 2MB</p>
               <div className="flex items-center gap-3">
                 <input
-                  type="file" accept="image/*" id="item-img"
+                  type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" id="item-img"
                   className="hidden"
                   onChange={async e => {
                     const file = e.target.files[0]
