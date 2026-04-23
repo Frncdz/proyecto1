@@ -24,7 +24,6 @@ export function useSessionCart(sessionId, myParticipantId) {
       .from('session_cart_items')
       .select('*, session_participants(name)')
       .eq('session_id', sessionId)
-      .eq('deleted', false)
       .order('created_at')
     setCartItems(data ?? [])
   }
@@ -53,14 +52,7 @@ export function useSessionCart(sessionId, myParticipantId) {
   async function removeItem(cartItemId) {
     await supabase
       .from('session_cart_items')
-      .update({ deleted: true })
-      .eq('id', cartItemId)
-  }
-
-  async function restoreItem(cartItemId) {
-    await supabase
-      .from('session_cart_items')
-      .update({ deleted: false })
+      .delete()
       .eq('id', cartItemId)
   }
 
@@ -100,6 +92,6 @@ export function useSessionCart(sessionId, myParticipantId) {
   return {
     cartItems, byParticipant, grandTotal,
     myQty, myCartItem,
-    addItem, removeItem, restoreItem, updateQuantity,
+    addItem, removeItem, updateQuantity,
   }
 }

@@ -18,7 +18,7 @@ export default function SessionMenu({
   const {
     cartItems, byParticipant, grandTotal,
     myQty, myCartItem,
-    addItem, removeItem, restoreItem, updateQuantity,
+    addItem, removeItem, updateQuantity,
   } = useSessionCart(session.id, myParticipant.id)
 
   const [activeCategory, setActiveCategory] = useState(null)
@@ -214,7 +214,6 @@ export default function SessionMenu({
             myParticipant={myParticipant}
             markOrderReady={markOrderReady}
             removeItem={removeItem}
-            restoreItem={restoreItem}
             updateQuantity={updateQuantity}
             restaurantId={restaurant.id}
             tableId={table.id}

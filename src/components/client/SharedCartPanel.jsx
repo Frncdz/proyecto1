@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Trash2, RotateCcw, ChefHat, Check, Users, Send } from 'lucide-react'
+import { Trash2, ChefHat, Check, Users, Send, AlertCircle } from 'lucide-react'
 
 export default function SharedCartPanel({
   byParticipant, grandTotal, cartItems,
   isOwner, myParticipantId,
   participants, allReady, session,
   myParticipant, markOrderReady,
-  removeItem, restoreItem, updateQuantity,
+  removeItem, updateQuantity,
   restaurantId, tableId, onOrderSent,
 }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [notes, setNotes] = useState('')
+  const [orderError, setOrderError] = useState(null)
 
   const myOrderReady = myParticipant?.order_ready ?? false
   const hasMyItems = cartItems.some(c => c.participant_id === myParticipantId)
@@ -20,23 +21,25 @@ export default function SharedCartPanel({
   async function submitOrder() {
     if (!isOwner || sending) return
     setSending(true)
+    setOrderError(null)
 
     const orderId = crypto.randomUUID()
-    const items = cartItems // already filtered to deleted=false
-
-    const total = items.reduce((sum, c) => sum + c.unit_price * c.quantity, 0)
+    const total = cartItems.reduce((sum, c) => sum + c.unit_price * c.quantity, 0)
 
     const { error: orderErr } = await supabase.from('orders').insert({
       id: orderId,
       restaurant_id: restaurantId,
       table_id: tableId,
-      session_id: session.id,
       notes: notes.trim() || null,
       total,
     })
-    if (orderErr) { setSending(false); return }
+    if (orderErr) {
+      setOrderError('No se pudo enviar el pedido. Intentá de nuevo.')
+      setSending(false)
+      return
+    }
 
-    const orderItems = items.map(c => ({
+    const orderItems = cartItems.map(c => ({
       order_id: orderId,
       menu_item_id: c.menu_item_id,
       item_name: c.item_name,
@@ -45,13 +48,12 @@ export default function SharedCartPanel({
     }))
     await supabase.from('order_items').insert(orderItems)
 
-    // Soft-delete all cart items so cart is clean after order
+    // Clear cart and reset ready flags
     await supabase
       .from('session_cart_items')
-      .update({ deleted: true })
+      .delete()
       .eq('session_id', session.id)
 
-    // Reset order_ready for all participants
     await supabase
       .from('session_participants')
       .update({ order_ready: false })
@@ -186,6 +188,14 @@ export default function SharedCartPanel({
           rows={2}
           className="w-full px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:border-gold-500 resize-none"
         />
+      )}
+
+      {/* Error de envío */}
+      {orderError && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          {orderError}
+        </div>
       )}
 
       {/* Enviar comanda (solo owner, cuando todos están listos) */}
