@@ -175,19 +175,19 @@ export default function SharedCartPanel({
         ))}
       </div>
 
-      {/* Botón "Listo para pedir" (para todos) */}
-      {!myOrderReady && hasMyItems && (
+      {/* Botón "Listo para pedir" — toggle para todos */}
+      {hasMyItems && (
         <button
-          onClick={() => markOrderReady(myParticipantId, true)}
-          className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-medium rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+          onClick={() => markOrderReady(myParticipantId, !myOrderReady)}
+          className={`w-full py-3 font-medium rounded-xl text-sm transition-colors flex items-center justify-center gap-2 ${
+            myOrderReady
+              ? 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
+              : 'bg-neutral-800 hover:bg-neutral-700 text-white'
+          }`}
         >
-          <Check size={16} /> Listo para pedir
+          <Check size={16} />
+          {myOrderReady ? 'Listo ✓ — toca para desmarcar' : 'Listo para pedir'}
         </button>
-      )}
-      {myOrderReady && !isOwner && (
-        <div className="w-full py-3 bg-green-500/10 border border-green-500/30 text-green-400 font-medium rounded-xl text-sm flex items-center justify-center gap-2">
-          <Check size={16} /> Marcaste que estás listo
-        </div>
       )}
 
       {/* Nota general (solo owner ve y puede editar) */}

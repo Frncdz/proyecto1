@@ -7,6 +7,8 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
   // Ref always holds the latest cart to avoid stale closures and React 18
   // StrictMode double-invocation of setState updaters triggering duplicate INSERTs
   const cartRef = useRef([])
+  // IDs being deleted — prevents fetchCart() from restoring items mid-delete
+  const pendingDeletesRef = useRef(new Set())
 
   useEffect(() => {
     if (!sessionId || !myParticipantId) return
@@ -29,8 +31,10 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
       .eq('session_id', sessionId)
       .order('created_at')
     if (!error) {
-      cartRef.current = data ?? []
-      setCartItems(data ?? [])
+      // Filter out items that are mid-delete to prevent race-condition restores
+      const result = (data ?? []).filter(item => !pendingDeletesRef.current.has(item.id))
+      cartRef.current = result
+      setCartItems(result)
     }
   }
 
@@ -42,6 +46,8 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
 
     if (existing) {
       const newQty = existing.quantity + 1
+      // Sync ref immediately so rapid taps read the correct current quantity
+      cartRef.current = cartRef.current.map(c => c.id === existing.id ? { ...c, quantity: newQty } : c)
       setCartItems(prev => prev.map(c => c.id === existing.id ? { ...c, quantity: newQty } : c))
       await supabase
         .from('session_cart_items')
@@ -76,12 +82,14 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
   }
 
   async function removeItem(cartItemId) {
+    pendingDeletesRef.current.add(cartItemId)
     cartRef.current = cartRef.current.filter(c => c.id !== cartItemId)
     setCartItems(prev => prev.filter(c => c.id !== cartItemId))
     const { error } = await supabase
       .from('session_cart_items')
       .delete()
       .eq('id', cartItemId)
+    pendingDeletesRef.current.delete(cartItemId)
     if (error) fetchCart()
   }
 
@@ -89,6 +97,8 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
     if (quantity <= 0) {
       await removeItem(cartItemId)
     } else {
+      // Sync ref immediately so rapid taps read the correct current quantity
+      cartRef.current = cartRef.current.map(c => c.id === cartItemId ? { ...c, quantity } : c)
       setCartItems(prev => prev.map(c => c.id === cartItemId ? { ...c, quantity } : c))
       await supabase
         .from('session_cart_items')
