@@ -14,7 +14,7 @@ export default function SessionMenu({
   approveParticipant, rejectParticipant, markOrderReady,
 }) {
   const { categories, items, loading } = useMenu(restaurant.id)
-  const { orders, total, hasPending, tableClosed } = useTableOrders(table.id)
+  const { orders, total, hasPending, tableClosed, refetch: refetchOrders } = useTableOrders(table.id)
   const {
     cartItems, byParticipant, grandTotal,
     myQty, myCartItem,
@@ -217,7 +217,7 @@ export default function SessionMenu({
             updateQuantity={updateQuantity}
             restaurantId={restaurant.id}
             tableId={table.id}
-            onOrderSent={() => setTab('cuenta')}
+            onOrderSent={() => { refetchOrders(); setTab('cuenta') }}
           />
         )}
 

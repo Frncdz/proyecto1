@@ -49,5 +49,5 @@ export function useTableOrders(tableId) {
   const hasPending = orders.some(o => o.status === 'pending')
   const hasActive = orders.length > 0
 
-  return { orders, total, hasPending, hasActive, tableClosed, loading }
+  return { orders, total, hasPending, hasActive, tableClosed, loading, refetch: fetchOrders }
 }
