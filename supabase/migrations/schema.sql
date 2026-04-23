@@ -246,6 +246,22 @@ ALTER PUBLICATION supabase_realtime ADD TABLE order_items;
 ALTER PUBLICATION supabase_realtime ADD TABLE waiter_calls;
 
 -- ─────────────────────────────────────────────
+-- MIGRATIONS v2 — Ejecutar en Supabase SQL Editor
+-- ─────────────────────────────────────────────
+
+-- Permite que el cliente lea sus pedidos (estado, cuenta)
+CREATE POLICY "orders_public_read" ON orders
+  FOR SELECT USING (true);
+
+-- Permite que el cliente lea los items de su pedido (para ver la cuenta)
+CREATE POLICY "order_items_public_read" ON order_items
+  FOR SELECT USING (true);
+
+-- Tipo de llamada: 'waiter' (llamar mozo) o 'payment' (pedir la cuenta)
+ALTER TABLE waiter_calls ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'waiter'
+  CHECK (type IN ('waiter', 'payment'));
+
+-- ─────────────────────────────────────────────
 -- STORAGE BUCKETS
 -- Crear manualmente en: Dashboard > Storage > New bucket
 -- Bucket 1: "menu-images"       → público  (fotos de platos)
