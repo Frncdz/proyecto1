@@ -3,7 +3,7 @@ import { useCart } from '../../context/CartContext'
 import { supabase } from '../../lib/supabase'
 import { ShoppingCart, X, Minus, Plus, Trash2, Send } from 'lucide-react'
 
-export default function Cart({ restaurantId, tableId, onOrderSent }) {
+export default function Cart({ restaurantId, tableId, sessionId, onOrderSent }) {
   const { items, total, itemCount, orderNotes, dispatch } = useCart()
   const [open, setOpen] = useState(false)
   const [sending, setSending] = useState(false)
@@ -22,6 +22,7 @@ export default function Cart({ restaurantId, tableId, onOrderSent }) {
         id: orderId,
         restaurant_id: restaurantId,
         table_id: tableId,
+        session_id: sessionId ?? null,
         total,
         notes: orderNotes || null,
         status: 'pending',
