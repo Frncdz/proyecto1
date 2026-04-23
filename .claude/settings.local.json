@@ -19,7 +19,8 @@
       "Bash(vercel inspect *)",
       "Bash(vercel domains *)",
       "Bash(vercel project *)",
-      "Bash(vercel env *)"
+      "Bash(vercel env *)",
+      "Bash(vercel *)"
     ]
   }
 }

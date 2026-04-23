@@ -38,7 +38,7 @@ export default function MenuManager({ categories, items, restaurantId, onRefetch
     const path = `${restaurantId}/${Date.now()}.${ext}`
     const { error } = await supabase.storage.from(BUCKETS.MENU_IMAGES).upload(path, file)
     setUploading(false)
-    if (error) return null
+    if (error) { alert(`Upload error: ${error.message} | status: ${error.statusCode}`); return null }
     const { data } = supabase.storage.from(BUCKETS.MENU_IMAGES).getPublicUrl(path)
     return data.publicUrl
   }
