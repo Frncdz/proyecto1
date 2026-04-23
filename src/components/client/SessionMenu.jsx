@@ -19,7 +19,7 @@ export default function SessionMenu({
     cartItems, byParticipant, grandTotal,
     myQty, myCartItem,
     addItem, removeItem, updateQuantity,
-  } = useSessionCart(session.id, myParticipant.id)
+  } = useSessionCart(session.id, myParticipant.id, participants)
 
   const [activeCategory, setActiveCategory] = useState(null)
   const [tab, setTab] = useState('menu') // 'menu' | 'carrito' | 'cuenta'

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useSessionCart(sessionId, myParticipantId) {
+export function useSessionCart(sessionId, myParticipantId, participants = []) {
   const [cartItems, setCartItems] = useState([])
   const channelRef = useRef(null)
 
@@ -20,12 +20,12 @@ export function useSessionCart(sessionId, myParticipantId) {
   }, [sessionId, myParticipantId])
 
   async function fetchCart() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('session_cart_items')
-      .select('*, session_participants(name)')
+      .select('*')
       .eq('session_id', sessionId)
       .order('created_at')
-    setCartItems(data ?? [])
+    if (!error) setCartItems(data ?? [])
   }
 
   async function addItem(menuItem) {
@@ -47,6 +47,7 @@ export function useSessionCart(sessionId, myParticipantId) {
         quantity: 1,
       })
     }
+    fetchCart()
   }
 
   async function removeItem(cartItemId) {
@@ -54,6 +55,7 @@ export function useSessionCart(sessionId, myParticipantId) {
       .from('session_cart_items')
       .delete()
       .eq('id', cartItemId)
+    fetchCart()
   }
 
   async function updateQuantity(cartItemId, quantity) {
@@ -64,16 +66,19 @@ export function useSessionCart(sessionId, myParticipantId) {
         .from('session_cart_items')
         .update({ quantity })
         .eq('id', cartItemId)
+      fetchCart()
     }
   }
 
-  // Items grouped by participant
+  // Build name lookup from participants prop (avoids join query)
+  const nameById = participants.reduce((acc, p) => { acc[p.id] = p.name; return acc }, {})
+
   const byParticipant = cartItems.reduce((acc, item) => {
     const pid = item.participant_id
     if (!acc[pid]) {
       acc[pid] = {
         participantId: pid,
-        name: item.session_participants?.name ?? 'Desconocido',
+        name: nameById[pid] ?? 'Desconocido',
         items: [],
       }
     }
