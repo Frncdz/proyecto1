@@ -174,6 +174,13 @@ export function useTableSession(tableId, restaurantId) {
     setMyParticipant(p => p ? { ...p, order_ready: value } : p)
   }
 
+  async function closeSession() {
+    if (!session) return
+    await supabase.from('table_sessions').update({ status: 'closed' }).eq('id', session.id)
+    localStorage.removeItem(TOKEN_KEY(tableId))
+    setStatus('closed')
+  }
+
   const allReady = participants.length > 0 && participants.every(p => p.order_ready)
   const isOwner  = myParticipant?.role === 'owner'
 
@@ -181,6 +188,6 @@ export function useTableSession(tableId, restaurantId) {
     status, session, myParticipant, participants, pendingJoins, ownerName,
     allReady, isOwner,
     createSession, joinSession,
-    approveParticipant, rejectParticipant, markOrderReady,
+    approveParticipant, rejectParticipant, markOrderReady, closeSession,
   }
 }

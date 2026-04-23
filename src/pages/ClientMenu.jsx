@@ -48,7 +48,7 @@ function SessionFlow({ table, restaurant }) {
     status, session: tableSession, myParticipant, participants, pendingJoins,
     ownerName, allReady, isOwner,
     createSession, joinSession,
-    approveParticipant, rejectParticipant, markOrderReady,
+    approveParticipant, rejectParticipant, markOrderReady, closeSession,
   } = session
 
   if (status === 'approved' && tableSession && myParticipant) {
@@ -65,6 +65,7 @@ function SessionFlow({ table, restaurant }) {
         approveParticipant={approveParticipant}
         rejectParticipant={rejectParticipant}
         markOrderReady={markOrderReady}
+        closeSession={closeSession}
       />
     )
   }

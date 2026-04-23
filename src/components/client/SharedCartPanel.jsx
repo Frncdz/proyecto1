@@ -9,6 +9,7 @@ export default function SharedCartPanel({
   myParticipant, markOrderReady,
   removeItem, updateQuantity,
   restaurantId, tableId, onOrderSent,
+  closeSession,
 }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -72,6 +73,16 @@ export default function SharedCartPanel({
         <ChefHat size={36} className="mx-auto mb-3 opacity-30" />
         <p className="text-sm">El carrito está vacío.</p>
         <p className="text-xs mt-1">Agregá platos desde el menú.</p>
+        {isOwner && closeSession && (
+          <button
+            onClick={() => {
+              if (confirm('¿Cerrar la mesa? Todos los participantes serán desconectados.')) closeSession()
+            }}
+            className="mt-8 px-5 py-2.5 border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400 rounded-xl text-sm font-medium transition-colors"
+          >
+            Cerrar mesa
+          </button>
+        )}
       </div>
     )
   }

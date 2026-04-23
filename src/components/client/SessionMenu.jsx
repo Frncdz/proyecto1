@@ -11,7 +11,7 @@ export default function SessionMenu({
   restaurant, table,
   session, myParticipant, participants, pendingJoins,
   isOwner, allReady,
-  approveParticipant, rejectParticipant, markOrderReady,
+  approveParticipant, rejectParticipant, markOrderReady, closeSession,
 }) {
   const { categories, items, loading } = useMenu(restaurant.id)
   const { orders, total, hasPending, tableClosed, refetch: refetchOrders } = useTableOrders(table.id)
@@ -193,6 +193,16 @@ export default function SessionMenu({
               </div>
               <div className="mt-8 space-y-3">
                 <CallWaiterButton restaurantId={restaurant.id} tableId={table.id} />
+                {isOwner && (
+                  <button
+                    onClick={() => {
+                      if (confirm('¿Cerrar la mesa? Todos los participantes serán desconectados.')) closeSession()
+                    }}
+                    className="w-full py-3 border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Cerrar mesa
+                  </button>
+                )}
               </div>
               <div className="mt-6 pb-4 text-center text-xs text-neutral-600">
                 Powered by Carta Virtual
@@ -218,6 +228,7 @@ export default function SessionMenu({
             restaurantId={restaurant.id}
             tableId={table.id}
             onOrderSent={() => { refetchOrders(); setTab('cuenta') }}
+            closeSession={closeSession}
           />
         )}
 
@@ -227,6 +238,7 @@ export default function SessionMenu({
             total={total}
             restaurantId={restaurant.id}
             tableId={table.id}
+            isOwner={isOwner}
           />
         )}
       </div>

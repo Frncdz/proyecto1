@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Receipt, CheckCircle, Clock, ChefHat, Truck, CreditCard, Bell } from 'lucide-react'
+import { Receipt, CheckCircle, Clock, ChefHat, Truck, CreditCard, Bell, X } from 'lucide-react'
 
 const ORDER_STATUS = {
   pending:   { label: 'En espera de aceptación', icon: Clock,        color: 'text-yellow-400' },
@@ -10,9 +10,17 @@ const ORDER_STATUS = {
   served:    { label: 'Entregado',                icon: CheckCircle,  color: 'text-neutral-400'},
 }
 
-export default function TableBill({ orders, total, restaurantId, tableId }) {
+export default function TableBill({ orders, total, restaurantId, tableId, isOwner }) {
   const [paymentRequested, setPaymentRequested] = useState(false)
   const [requesting, setRequesting] = useState(false)
+  const [cancellingId, setCancellingId] = useState(null)
+
+  async function cancelOrder(orderId) {
+    if (!confirm('¿Cancelar este pedido?')) return
+    setCancellingId(orderId)
+    await supabase.from('orders').update({ status: 'rejected' }).eq('id', orderId)
+    setCancellingId(null)
+  }
 
   async function requestPayment() {
     setRequesting(true)
@@ -45,10 +53,22 @@ export default function TableBill({ orders, total, restaurantId, tableId }) {
           <div key={order.id} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
               <span className="text-xs text-neutral-500">Pedido #{i + 1}</span>
-              <span className={`flex items-center gap-1.5 text-xs font-medium ${statusInfo.color}`}>
-                <Icon size={13} />
-                {statusInfo.label}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`flex items-center gap-1.5 text-xs font-medium ${statusInfo.color}`}>
+                  <Icon size={13} />
+                  {statusInfo.label}
+                </span>
+                {isOwner && order.status === 'pending' && (
+                  <button
+                    onClick={() => cancelOrder(order.id)}
+                    disabled={cancellingId === order.id}
+                    className="w-6 h-6 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 flex items-center justify-center disabled:opacity-50"
+                    title="Cancelar pedido"
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="px-4 py-3 space-y-1.5">
               {order.order_items?.map(item => (
