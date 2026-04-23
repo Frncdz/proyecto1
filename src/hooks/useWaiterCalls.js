@@ -15,7 +15,9 @@ export function useWaiterCalls(restaurantId) {
         schema: 'public',
         table: 'waiter_calls',
         filter: `restaurant_id=eq.${restaurantId}`,
-      }, () => fetchCalls())
+      }, () => {
+        fetchCalls()
+      })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
@@ -38,8 +40,5 @@ export function useWaiterCalls(restaurantId) {
       .eq('id', callId)
   }
 
-  const waiterCalls = calls.filter(c => c.type !== 'payment')
-  const paymentCalls = calls.filter(c => c.type === 'payment')
-
-  return { calls, waiterCalls, paymentCalls, attendCall }
+  return { calls, attendCall }
 }
