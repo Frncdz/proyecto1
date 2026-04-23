@@ -300,6 +300,58 @@ CREATE POLICY "restaurant_logos_auth_delete" ON storage.objects
   );
 
 -- ─────────────────────────────────────────────
+-- MIGRATIONS v3 — Sistema de sesiones de mesa
+-- ─────────────────────────────────────────────
+
+CREATE TABLE table_sessions (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  table_id      UUID REFERENCES tables(id) ON DELETE CASCADE NOT NULL,
+  restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE NOT NULL,
+  status        TEXT DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE session_participants (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id    UUID REFERENCES table_sessions(id) ON DELETE CASCADE NOT NULL,
+  name          TEXT NOT NULL,
+  role          TEXT DEFAULT 'companion' CHECK (role IN ('owner', 'companion')),
+  status        TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  token         UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
+  order_ready   BOOLEAN DEFAULT false,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE session_cart_items (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id     UUID REFERENCES table_sessions(id) ON DELETE CASCADE NOT NULL,
+  participant_id UUID REFERENCES session_participants(id) ON DELETE CASCADE NOT NULL,
+  menu_item_id   UUID REFERENCES menu_items(id) ON DELETE SET NULL,
+  item_name      TEXT NOT NULL,
+  unit_price     DECIMAL(10,2) NOT NULL,
+  quantity       INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  deleted        BOOLEAN DEFAULT false,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES table_sessions(id) ON DELETE SET NULL;
+
+-- RLS
+ALTER TABLE table_sessions      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_cart_items  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "table_sessions_public_all"      ON table_sessions      FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "session_participants_public_all" ON session_participants FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "session_cart_items_public_all"  ON session_cart_items  FOR ALL USING (true) WITH CHECK (true);
+
+-- Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE table_sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE session_participants;
+ALTER PUBLICATION supabase_realtime ADD TABLE session_cart_items;
+
+-- ─────────────────────────────────────────────
 -- SEED: datos iniciales de ejemplo
 -- ─────────────────────────────────────────────
 
