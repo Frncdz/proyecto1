@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export function useTableOrders(tableId) {
   const [orders, setOrders] = useState([])
   const [tableClosed, setTableClosed] = useState(false)
+  const [hadOrders, setHadOrders] = useState(false)
   const [loading, setLoading] = useState(true)
   const hadOrdersRef = useRef(false)
 
@@ -34,9 +35,11 @@ export function useTableOrders(tableId) {
     const all = data ?? []
     const active = all.filter(o => !['rejected', 'closed'].includes(o.status))
 
-    if (active.length > 0) hadOrdersRef.current = true
+    if (active.length > 0) {
+      hadOrdersRef.current = true
+      setHadOrders(true)
+    }
 
-    // Mesa cerrada: había pedidos y ahora todos están cerrados/rechazados
     if (hadOrdersRef.current && active.length === 0 && all.length > 0) {
       setTableClosed(true)
     }
@@ -49,5 +52,5 @@ export function useTableOrders(tableId) {
   const hasPending = orders.some(o => o.status === 'pending')
   const hasActive = orders.length > 0
 
-  return { orders, total, hasPending, hasActive, tableClosed, loading, refetch: fetchOrders }
+  return { orders, total, hasPending, hasActive, hadOrders, tableClosed, loading, refetch: fetchOrders }
 }

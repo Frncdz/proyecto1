@@ -8,9 +8,11 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
   const cartRef = useRef([])
   // IDs being deleted — fetchCart() filters these to prevent race-condition restores
   const pendingDeletesRef = useRef(new Set())
-  // cartItemId → latest intended quantity for in-flight updates
-  // fetchCart() applies these instead of stale DB values while the update is in transit
+  // cartItemId → latest intended quantity for in-flight DB updates
   const pendingUpdatesRef = useRef(new Map())
+  // `${menu_item_id}:${participant_id}` → desired quantity while INSERT is in-flight
+  // Prevents any DB call on temp IDs by accumulating changes and applying after INSERT
+  const insertQueueRef = useRef(new Map())
 
   useEffect(() => {
     if (!sessionId || !myParticipantId) return
@@ -33,9 +35,7 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
       .eq('session_id', sessionId)
       .order('created_at')
     if (!error) {
-      // Filter items mid-delete so concurrent fetchCart() calls can't restore them
       let result = (data ?? []).filter(item => !pendingDeletesRef.current.has(item.id))
-      // Apply pending quantity updates so stale DB values don't overwrite optimistic state
       result = result.map(item => {
         const pending = pendingUpdatesRef.current.get(item.id)
         return pending !== undefined ? { ...item, quantity: pending } : item
@@ -50,14 +50,31 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
     const existing = current.find(
       c => c.menu_item_id === menuItem.id && c.participant_id === myParticipantId
     )
+    const insertKey = `${menuItem.id}:${myParticipantId}`
 
     if (existing) {
-      // existing.id is always a real DB UUID here — temp IDs are replaced synchronously
-      // right after INSERT (see else-branch below), so this path is safe
+      if (existing.id.startsWith('tmp-')) {
+        // INSERT still in-flight — accumulate in queue, no DB call
+        const currentDesired = insertQueueRef.current.get(insertKey) ?? existing.quantity
+        const newDesired = currentDesired + 1
+        insertQueueRef.current.set(insertKey, newDesired)
+        cartRef.current = cartRef.current.map(c =>
+          c.id === existing.id ? { ...c, quantity: newDesired } : c
+        )
+        setCartItems(prev => prev.map(c =>
+          c.id === existing.id ? { ...c, quantity: newDesired } : c
+        ))
+        return
+      }
+      // Real UUID — safe to UPDATE
       const newQty = existing.quantity + 1
       pendingUpdatesRef.current.set(existing.id, newQty)
-      cartRef.current = cartRef.current.map(c => c.id === existing.id ? { ...c, quantity: newQty } : c)
-      setCartItems(prev => prev.map(c => c.id === existing.id ? { ...c, quantity: newQty } : c))
+      cartRef.current = cartRef.current.map(c =>
+        c.id === existing.id ? { ...c, quantity: newQty } : c
+      )
+      setCartItems(prev => prev.map(c =>
+        c.id === existing.id ? { ...c, quantity: newQty } : c
+      ))
       await supabase
         .from('session_cart_items')
         .update({ quantity: newQty })
@@ -66,7 +83,8 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
       fetchCart()
     } else {
       const tempId = `tmp-${menuItem.id}-${myParticipantId}`
-      if (current.some(c => c.id === tempId)) return // insert already in-flight
+      if (current.some(c => c.id === tempId)) return
+      insertQueueRef.current.set(insertKey, 1)
       const newItem = {
         id: tempId,
         session_id: sessionId,
@@ -79,7 +97,6 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
       cartRef.current = [...current, newItem]
       setCartItems(prev => [...prev, newItem])
 
-      // Request the inserted row back so we immediately get the real UUID
       const { data: inserted, error: insertError } = await supabase
         .from('session_cart_items')
         .insert({
@@ -94,21 +111,62 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
         .single()
 
       if (insertError || !inserted) {
-        // Revert optimistic state on failure
+        insertQueueRef.current.delete(insertKey)
         cartRef.current = cartRef.current.filter(c => c.id !== tempId)
         setCartItems(prev => prev.filter(c => c.id !== tempId))
         return
       }
 
-      // Replace temp ID with the real DB UUID so subsequent +/delete ops use the right ID
-      // If fetchCart() from the realtime INSERT event already ran and replaced it, this is a no-op
-      cartRef.current = cartRef.current.map(c => c.id === tempId ? { ...c, id: inserted.id } : c)
-      setCartItems(prev => prev.map(c => c.id === tempId ? { ...c, id: inserted.id } : c))
+      // Replace temp ID with real UUID
+      cartRef.current = cartRef.current.map(c =>
+        c.id === tempId ? { ...c, id: inserted.id } : c
+      )
+      setCartItems(prev => prev.map(c =>
+        c.id === tempId ? { ...c, id: inserted.id } : c
+      ))
+
+      // Apply accumulated changes from taps that happened while INSERT was in-flight
+      const desiredQty = insertQueueRef.current.get(insertKey) ?? 1
+      insertQueueRef.current.delete(insertKey)
+
+      if (desiredQty === 0) {
+        // User deleted the item before INSERT completed
+        pendingDeletesRef.current.add(inserted.id)
+        cartRef.current = cartRef.current.filter(c => c.id !== inserted.id)
+        setCartItems(prev => prev.filter(c => c.id !== inserted.id))
+        await supabase.from('session_cart_items').delete().eq('id', inserted.id)
+        pendingDeletesRef.current.delete(inserted.id)
+      } else if (desiredQty > 1) {
+        // User tapped + while INSERT was pending
+        pendingUpdatesRef.current.set(inserted.id, desiredQty)
+        cartRef.current = cartRef.current.map(c =>
+          c.id === inserted.id ? { ...c, quantity: desiredQty } : c
+        )
+        setCartItems(prev => prev.map(c =>
+          c.id === inserted.id ? { ...c, quantity: desiredQty } : c
+        ))
+        await supabase
+          .from('session_cart_items')
+          .update({ quantity: desiredQty })
+          .eq('id', inserted.id)
+        pendingUpdatesRef.current.delete(inserted.id)
+      }
+
       fetchCart()
     }
   }
 
   async function removeItem(cartItemId) {
+    if (cartItemId.startsWith('tmp-')) {
+      // INSERT in-flight — mark for deletion, no DB call yet
+      const item = cartRef.current.find(c => c.id === cartItemId)
+      if (item) {
+        insertQueueRef.current.set(`${item.menu_item_id}:${myParticipantId}`, 0)
+      }
+      cartRef.current = cartRef.current.filter(c => c.id !== cartItemId)
+      setCartItems(prev => prev.filter(c => c.id !== cartItemId))
+      return
+    }
     pendingDeletesRef.current.add(cartItemId)
     cartRef.current = cartRef.current.filter(c => c.id !== cartItemId)
     setCartItems(prev => prev.filter(c => c.id !== cartItemId))
@@ -121,12 +179,36 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
   }
 
   async function updateQuantity(cartItemId, quantity) {
+    if (cartItemId.startsWith('tmp-')) {
+      // INSERT in-flight — accumulate, no DB call
+      const item = cartRef.current.find(c => c.id === cartItemId)
+      if (!item) return
+      const insertKey = `${item.menu_item_id}:${myParticipantId}`
+      if (quantity <= 0) {
+        insertQueueRef.current.set(insertKey, 0)
+        cartRef.current = cartRef.current.filter(c => c.id !== cartItemId)
+        setCartItems(prev => prev.filter(c => c.id !== cartItemId))
+      } else {
+        insertQueueRef.current.set(insertKey, quantity)
+        cartRef.current = cartRef.current.map(c =>
+          c.id === cartItemId ? { ...c, quantity } : c
+        )
+        setCartItems(prev => prev.map(c =>
+          c.id === cartItemId ? { ...c, quantity } : c
+        ))
+      }
+      return
+    }
     if (quantity <= 0) {
       await removeItem(cartItemId)
     } else {
       pendingUpdatesRef.current.set(cartItemId, quantity)
-      cartRef.current = cartRef.current.map(c => c.id === cartItemId ? { ...c, quantity } : c)
-      setCartItems(prev => prev.map(c => c.id === cartItemId ? { ...c, quantity } : c))
+      cartRef.current = cartRef.current.map(c =>
+        c.id === cartItemId ? { ...c, quantity } : c
+      )
+      setCartItems(prev => prev.map(c =>
+        c.id === cartItemId ? { ...c, quantity } : c
+      ))
       await supabase
         .from('session_cart_items')
         .update({ quantity })
@@ -138,7 +220,6 @@ export function useSessionCart(sessionId, myParticipantId, participants = []) {
 
   const nameById = participants.reduce((acc, p) => { acc[p.id] = p.name; return acc }, {})
 
-  // Group by participant; merge duplicate rows for the same menu item defensively
   const byParticipant = cartItems.reduce((acc, item) => {
     const pid = item.participant_id
     if (!acc[pid]) {

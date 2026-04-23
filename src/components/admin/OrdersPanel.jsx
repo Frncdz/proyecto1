@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useOrders } from '../../hooks/useOrders'
 import { useWaiterCalls } from '../../hooks/useWaiterCalls'
+import { useTables } from '../../hooks/useTables'
 import { supabase } from '../../lib/supabase'
 import { Clock, CheckCircle, XCircle, ChefHat, Bell, BellOff, CreditCard, X, DoorOpen } from 'lucide-react'
 
@@ -21,6 +22,7 @@ const STATUS_FLOW = {
 export default function OrdersPanel({ restaurantId }) {
   const { orders, loading, updateStatus } = useOrders(restaurantId)
   const { waiterCalls, paymentCalls, attendCall } = useWaiterCalls(restaurantId)
+  const { tables, updateTableStatus } = useTables(restaurantId)
   const [notification, setNotification] = useState(null)
   const prevPendingCount = useRef(null)
   const isFirstLoad = useRef(true)
@@ -73,6 +75,7 @@ export default function OrdersPanel({ restaurantId }) {
       .update({ status: 'closed' })
       .eq('table_id', tableId)
       .in('status', ['pending', 'accepted', 'preparing', 'ready', 'served'])
+    updateTableStatus(tableId, 'por_liberar')
   }
 
   // Agrupar pedidos por mesa
@@ -161,6 +164,24 @@ export default function OrdersPanel({ restaurantId }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Estado de mesas */}
+      {tables.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
+            Estado de mesas
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tables.map(table => (
+              <TableStatusCard
+                key={table.id}
+                table={table}
+                onUpdateStatus={updateTableStatus}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -270,6 +291,40 @@ function OrderCard({ order, onUpdateStatus }) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+const TABLE_STATUSES = {
+  libre:       { label: 'Libre',       color: 'text-green-400 bg-green-400/10 border-green-400/30' },
+  ocupada:     { label: 'Ocupada',     color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' },
+  por_liberar: { label: 'Por liberar', color: 'text-orange-400 bg-orange-400/10 border-orange-400/30' },
+  pagado:      { label: 'Pagado',      color: 'text-blue-400 bg-blue-400/10 border-blue-400/30' },
+}
+
+function TableStatusCard({ table, onUpdateStatus }) {
+  const current = TABLE_STATUSES[table.effectiveStatus] ?? TABLE_STATUSES.libre
+  const actions = Object.entries(TABLE_STATUSES).filter(([key]) => key !== table.effectiveStatus)
+
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-medium text-white">{table.name}</p>
+        <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${current.color}`}>
+          {current.label}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {actions.map(([key, { label }]) => (
+          <button
+            key={key}
+            onClick={() => onUpdateStatus(table.id, key)}
+            className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   )

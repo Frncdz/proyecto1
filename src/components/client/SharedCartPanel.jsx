@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Trash2, ChefHat, Check, Users, Send, AlertCircle } from 'lucide-react'
+import { Trash2, ChefHat, Check, Users, Send, AlertCircle, Clock } from 'lucide-react'
 
 export default function SharedCartPanel({
   byParticipant, grandTotal, cartItems,
@@ -8,13 +8,17 @@ export default function SharedCartPanel({
   participants, allReady, session,
   myParticipant, markOrderReady,
   removeItem, updateQuantity,
-  restaurantId, tableId, onOrderSent,
+  restaurantId, tableId, onOrderSent, onViewBill,
   closeSession,
 }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [notes, setNotes] = useState('')
   const [orderError, setOrderError] = useState(null)
+
+  useEffect(() => {
+    if (sent && cartItems.length > 0) setSent(false)
+  }, [cartItems.length])
 
   const myOrderReady = myParticipant?.order_ready ?? false
   const hasMyItems = cartItems.some(c => c.participant_id === myParticipantId)
@@ -65,6 +69,26 @@ export default function SharedCartPanel({
     onOrderSent?.()
   }
 
+  if (sent) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-14 h-14 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-4">
+          <Clock size={26} className="text-yellow-400 animate-pulse" />
+        </div>
+        <p className="text-white font-semibold">Esperando confirmación</p>
+        <p className="text-neutral-400 text-sm mt-1">La cocina está revisando tu pedido.</p>
+        {onViewBill && (
+          <button
+            onClick={onViewBill}
+            className="mt-6 px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-sm font-medium transition-colors"
+          >
+            Ver cuenta
+          </button>
+        )}
+      </div>
+    )
+  }
+
   const groups = Object.values(byParticipant)
 
   if (groups.length === 0) {
@@ -83,18 +107,6 @@ export default function SharedCartPanel({
             Cerrar mesa
           </button>
         )}
-      </div>
-    )
-  }
-
-  if (sent) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-          <Check size={26} className="text-green-400" />
-        </div>
-        <p className="text-white font-semibold">¡Pedido enviado!</p>
-        <p className="text-neutral-400 text-sm mt-1">La cocina ya lo recibió.</p>
       </div>
     )
   }

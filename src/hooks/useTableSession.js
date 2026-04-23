@@ -5,7 +5,7 @@ const TOKEN_KEY = (tableId) => `sv_token_${tableId}`
 
 export function useTableSession(tableId, restaurantId) {
   const [status, setStatus] = useState('loading')
-  // loading | enter_name | join_existing | waiting_approval | approved | rejected | closed
+  // loading | enter_name | join_existing | table_full | waiting_approval | approved | rejected | closed
 
   const [session, setSession]             = useState(null)
   const [myParticipant, setMyParticipant] = useState(null)
@@ -65,18 +65,28 @@ export function useTableSession(tableId, restaurantId) {
 
     if (activeSession) {
       const owner = activeSession.session_participants?.find(p => p.role === 'owner' && p.status === 'approved')
+      const approvedCount = activeSession.session_participants?.filter(p => p.status === 'approved').length ?? 0
       setSession(activeSession)
       setOwnerName(owner?.name ?? 'el dueño de la mesa')
-      setStatus('join_existing')
+      if (activeSession.max_participants && approvedCount >= activeSession.max_participants) {
+        setStatus('table_full')
+      } else {
+        setStatus('join_existing')
+      }
     } else {
       setStatus('enter_name')
     }
   }
 
-  async function createSession(name) {
+  async function createSession(name, maxParticipants = null) {
+    const sessionData = { table_id: tableId, restaurant_id: restaurantId }
+    if (maxParticipants && maxParticipants > 0) {
+      sessionData.max_participants = maxParticipants
+    }
+
     const { data: newSession, error: sessErr } = await supabase
       .from('table_sessions')
-      .insert({ table_id: tableId, restaurant_id: restaurantId })
+      .insert(sessionData)
       .select()
       .single()
     if (sessErr) return
@@ -177,9 +187,8 @@ export function useTableSession(tableId, restaurantId) {
   async function closeSession() {
     if (!session) return
     await supabase.from('table_sessions').update({ status: 'closed' }).eq('id', session.id)
-    // Token is intentionally kept in localStorage so that on reload, initialize()
-    // hits the DB, sees status='closed', and shows "Mesa cerrada" — preventing
-    // immediate re-entry without a fresh QR scan (new browser session / incognito)
+    // Token kept intentionally — initialize() validates against DB on reload and shows
+    // "Mesa cerrada" instead of allowing immediate re-entry
     setStatus('closed')
   }
 

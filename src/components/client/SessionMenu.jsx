@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMenu } from '../../hooks/useMenu'
 import { useSessionCart } from '../../hooks/useSessionCart'
 import { useTableOrders } from '../../hooks/useTableOrders'
 import SharedCartPanel from './SharedCartPanel'
 import CallWaiterButton from './CallWaiterButton'
 import TableBill from './TableBill'
-import { UtensilsCrossed, ShoppingCart, Receipt, Bell, Check, X, Users } from 'lucide-react'
+import { UtensilsCrossed, ShoppingCart, Receipt, Bell, Check, X, Users, QrCode } from 'lucide-react'
 
 export default function SessionMenu({
   restaurant, table,
@@ -14,7 +14,7 @@ export default function SessionMenu({
   approveParticipant, rejectParticipant, markOrderReady, closeSession,
 }) {
   const { categories, items, loading } = useMenu(restaurant.id)
-  const { orders, total, hasPending, tableClosed, refetch: refetchOrders } = useTableOrders(table.id)
+  const { orders, total, hasPending, tableClosed, hadOrders, refetch: refetchOrders } = useTableOrders(table.id)
   const {
     cartItems, byParticipant, grandTotal,
     myQty, myCartItem,
@@ -23,7 +23,8 @@ export default function SessionMenu({
 
   const [activeCategory, setActiveCategory] = useState(null)
   const [tab, setTab] = useState('menu') // 'menu' | 'carrito' | 'cuenta'
-  const [orderSent, setOrderSent] = useState(false)
+
+  const prevHasPendingRef = useRef(false)
 
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {
@@ -32,8 +33,11 @@ export default function SessionMenu({
   }, [categories])
 
   useEffect(() => {
-    if (hasPending) setTab('cuenta')
-  }, [hasPending])
+    if (prevHasPendingRef.current && !hasPending && orders.length > 0) {
+      setTab('cuenta')
+    }
+    prevHasPendingRef.current = hasPending
+  }, [hasPending, orders.length])
 
   const visibleItems = items.filter(i => i.category_id === activeCategory)
   const cartCount = cartItems.reduce((sum, c) => sum + c.quantity, 0)
@@ -41,13 +45,20 @@ export default function SessionMenu({
   if (tableClosed) {
     return (
       <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-6">
-        <div className="text-center">
+        <div className="text-center max-w-sm">
           <div className="w-16 h-16 rounded-full bg-gold-500/10 flex items-center justify-center mx-auto mb-4">
             <UtensilsCrossed size={28} className="text-gold-400" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">¡Gracias por su visita!</h2>
+          <h2 className="text-xl font-bold text-white mb-2">
+            {hadOrders ? '¡Gracias por su visita!' : '¡Hasta la próxima!'}
+          </h2>
           <p className="text-neutral-400 text-sm">{restaurant.name}</p>
-          <p className="text-neutral-600 text-xs mt-4">Mesa cerrada</p>
+          <div className="flex items-start gap-3 px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-xl text-left mt-6">
+            <QrCode size={18} className="text-neutral-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-neutral-300">
+              Para volver a pedir, cerrá esta página y escaneá el QR de la mesa nuevamente.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -227,7 +238,8 @@ export default function SessionMenu({
             updateQuantity={updateQuantity}
             restaurantId={restaurant.id}
             tableId={table.id}
-            onOrderSent={() => { refetchOrders(); setTab('cuenta') }}
+            onOrderSent={() => refetchOrders()}
+            onViewBill={() => setTab('cuenta')}
             closeSession={closeSession}
           />
         )}
